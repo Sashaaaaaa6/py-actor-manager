@@ -1,4 +1,49 @@
-from dataclasses import dataclass
+import sqlite3
+from app.models import Actor
 
 
-# add dataclass here
+class ActorManager:
+    def __init__(self, db_name: str, table_name: str):
+        self.db_name = db_name
+        self.table_name = table_name
+        self._create_table_if_not_exists()
+
+    def _connect(self):
+        return sqlite3.connect(self.db_name)
+
+    def _create_table_if_not_exists(self):
+        with self._connect() as conn:
+            conn.execute(
+                f"""
+                CREATE TABLE IF NOT EXISTS {self.table_name} (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    first_name TEXT NOT NULL,
+                    last_name TEXT NOT NULL
+                )
+                """
+            )
+
+    def create(self, first_name: str, last_name: str):
+        with self._connect() as conn:
+            cursor = conn.execute(
+                f"INSERT INTO {self.table_name} (first_name, last_name) VALUES (?, ?)",
+                (first_name, last_name),
+            )
+            return cursor.lastrowid
+
+    def all(self):
+        with self._connect() as conn:
+            cursor = conn.execute(f"SELECT id, first_name, last_name FROM {self.table_name}")
+            rows = cursor.fetchall()
+            return [Actor(id=row[0], first_name=row[1], last_name=row[2]) for row in rows]
+
+    def update(self, pk: int, new_first_name: str, new_last_name: str):
+        with self._connect() as conn:
+            conn.execute(
+                f"UPDATE {self.table_name} SET first_name = ?, last_name = ? WHERE id = ?",
+                (new_first_name, new_last_name, pk),
+            )
+
+    def delete(self, pk: int):
+        with self._connect() as conn:
+            conn.execute(f"DELETE FROM {self.table_name} WHERE id = ?", (pk,))
